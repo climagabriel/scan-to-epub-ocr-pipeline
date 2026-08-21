@@ -1,0 +1,76 @@
+You are converting raw tesseract OCR output into clean LaTeX. Read every rule
+before starting. This is a mechanical transcription job, not a writing job.
+
+## The source
+
+A. N. Kolmogorov, "Foundations of the Theory of Probability", Chelsea
+Publishing Company, New York, 1950 — Nathan Morrison's English translation of
+the 1933 German "Grundbegriffe der Wahrscheinlichkeitsrechnung". A measure-
+theoretic monograph: axiomatic probability, Borel fields, Lebesgue integration,
+conditional probability and expectation, laws of large numbers.
+
+The OCR is tesseract 5 --psm 6 on a 400 dpi bilevel scan. Prose comes through
+almost perfectly. MATH DOES NOT. These are the failure modes you will see, and
+they are the entire reason this job exists:
+
+- Subscripts and superscripts are flattened into commas and stray letters.
+  "x_1, x_2, ..., x_n" arrives as "x,, %,..., én" or "Dit pet... + pat...-=1".
+- Whole display equations are DROPPED, leaving a gap between two prose lines.
+- Greek letters become Latin lookalikes: xi -> "é" or "&", mu -> "u",
+  sigma -> "o", epsilon -> "e".
+- Script/fraktur set symbols (the book uses fraktur B for the Borel field and
+  fraktur F for a field of events) become "B", "$", "%", "R", "BY", "BF".
+- Summation and integral signs become ">", "S", "J", "f".
+- Primes, overbars and hats vanish.
+
+## Your task
+
+For each page you are given, emit a LaTeX body fragment.
+
+## Rules
+
+1. PROCESS EXACTLY ONE PAGE AT A TIME AND EMIT ITS RESULT IMMEDIATELY, before
+   you read or think about the next page. Do NOT read all pages first. Do NOT
+   accumulate results and emit them at the end. If you run out of budget
+   mid-run, everything already emitted must still be usable.
+
+2. Wrap each page's output in these exact delimiters, on their own lines:
+       <<<PAGE p-NN>>>
+       ...latex body fragment...
+       <<<END p-NN>>>
+   Use the NN from the input page header. Emit nothing else between blocks.
+
+3. Reconstruct mathematics into correct LaTeX. Use \[ \] for display math and
+   $ $ inline. Use \mathfrak{B} for the Borel field and \mathfrak{F} for a
+   field of events. Use \mathsf{P} for probability, \mathsf{E} for expectation.
+   Standard: \sum, \int, \subset, \cap, \cup, \varnothing, \to, \infty.
+
+4. THE RULE THAT MATTERS MOST. You cannot see the page image — only this
+   mangled text. Where the OCR is too corrupt to reconstruct with confidence,
+   or where a display equation has obviously been dropped and you would have to
+   guess its content, DO NOT GUESS. Emit:
+       \UNSURE{brief description of what is missing or doubtful}
+   in place of the formula. A \UNSURE marker is a success: a human will read
+   the page image and fill it in. An invented formula that looks plausible is
+   the single worst outcome of this job, because it is undetectable downstream.
+   When torn between reconstructing and marking, MARK.
+
+5. Preserve structure. Use \chapter{}, \section{}, \subsection{} for the book's
+   headings; the book numbers chapters with Roman numerals and sections with
+   "§ n". Use \begin{theorem}, \begin{proof} environments where the text says
+   THEOREM / Proof. Use \footnote{} for footnotes. Preserve numbered equations
+   as \begin{equation} with the book's own number via \tag{}.
+
+6. Drop running heads and page numbers — the line at the top of a page like
+   "18 II. Infinite Probability Fields" or "70 Appendix" is a running head, not
+   content. Do not emit it.
+
+7. Fix obvious OCR damage in PROSE silently (e.g. "PROBABIBLITY" -> the correct
+   word, "integra- tion" rejoined across a line break). Do not modernise the
+   author's spelling, punctuation or wording otherwise. This is a 1950 text and
+   reads like one; leave it alone.
+
+8. Output ONLY the delimited LaTeX blocks. No preamble, no \documentclass, no
+   commentary, no summary, no closing remarks.
+
+## Pages

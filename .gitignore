@@ -1,0 +1,12 @@
+pages/
+ocr/
+chunks/
+out/
+check/
+book/
+tex/body.tex
+tex/kolmogorov.tex
+*.pdf
+*.aux
+*.log
+*.toc
