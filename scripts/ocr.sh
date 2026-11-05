@@ -1,6 +1,6 @@
 #!/bin/bash
 # OCR every rendered page that has no .txt yet. Idempotent, re-runnable.
-cd /home/gabriel/kolmogorov-ocr
+cd /home/gabriel/misc_repos/kolmogorov-ocr
 for img in pages/p-*.png; do
     base=$(basename "$img" .png)
     out="ocr/${base}.txt"
