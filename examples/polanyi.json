@@ -1,0 +1,83 @@
+{
+  "title": "The Tacit Dimension",
+  "author": "Michael Polanyi",
+  "publisher": "Doubleday & Company, Inc., Garden City, New York",
+  "date": "1966",
+  "language": "en",
+  "profile": "xhtml-prose",
+  "chunk_size": 5,
+  "slug": "polanyi-tacit-dimension",
+  "context": "Michael Polanyi, The Tacit Dimension (Doubleday, 1966, first edition): the 1962 Terry Lectures at Yale, three chapters of philosophical prose on tacit knowing, emergence and the society of science, with an Introduction, endnotes and a bibliography. American spelling and punctuation of the 1960s, occasionally British ('armoury'). Typography: running heads THE TACIT DIMENSION (left pages) and the chapter title (right pages) at the top, page numbers at the bottom; chapter openings start with a large initial capital followed by small capitals ('I HAVE GIVEN you'); footnotes are marked with an asterisk and set in smaller type at the foot of the page; the Notes section numbers its notes (1), (2), ... This copy is a library scan: it carries library stamps, a call number, and on some pages handwritten pencil marginalia. None of that is part of the book.",
+  "sections": [
+    {
+      "id": "copyright",
+      "kind": "front",
+      "title": null,
+      "pages": "2"
+    },
+    {
+      "id": "acknowledgments",
+      "kind": "front",
+      "title": "Acknowledgments",
+      "pages": "3"
+    },
+    {
+      "id": "introduction",
+      "title": "Introduction",
+      "pages": "5-7"
+    },
+    {
+      "id": "ch1",
+      "label": "1",
+      "title": "Tacit Knowing",
+      "pages": "9-31"
+    },
+    {
+      "id": "ch2",
+      "label": "2",
+      "title": "Emergence",
+      "pages": "32-55"
+    },
+    {
+      "id": "ch3",
+      "label": "3",
+      "title": "A Society of Explorers",
+      "pages": "58-95"
+    },
+    {
+      "id": "notes",
+      "kind": "back",
+      "title": "Notes",
+      "pages": "97-99"
+    },
+    {
+      "id": "bibliography",
+      "kind": "back",
+      "title": "Related Bibliography",
+      "pages": "101-102"
+    }
+  ],
+  "skipped": {
+    "p-001": "title page; the EPUB builder generates one from the metadata",
+    "p-004": "printed table of contents; replaced by the EPUB navigation",
+    "p-008": "chapter 1 title page",
+    "p-056": "chapter 3 title page",
+    "p-057": "blank verso",
+    "p-096": "Notes title page",
+    "p-100": "photograph of the book's edge, not a page"
+  },
+  "gaps": [
+    {
+      "after": "p-097",
+      "note": "Printed pages 96–97 are missing from the scan this edition was made from. The notes printed on them are lost, and the text below resumes in the middle of a note."
+    },
+    {
+      "before": "p-101",
+      "note": "Printed pages 101–102, the start of the Related Bibliography, are missing from the scan this edition was made from."
+    },
+    {
+      "after": "p-102",
+      "note": "The Index (printed pages 105 onward) is not in the scan and is not reproduced."
+    }
+  ]
+}

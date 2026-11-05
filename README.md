@@ -1,206 +1,302 @@
-# Kolmogorov, *Foundations of the Theory of Probability* — Kindle edition
+# scan-to-epub-ocr-pipeline
 
-A rebuild of A. N. Kolmogorov's *Foundations of the Theory of Probability*
-(Chelsea Publishing Company, New York, 1950; Nathan Morrison's translation of
-the 1933 *Grundbegriffe der Wahrscheinlichkeitsrechnung*) from a scanned PDF
-into a small-format, text-based PDF that is actually readable on a Kindle.
+Turn a scanned book — a PDF in which every page is a picture — into real,
+reflowable, searchable text: an **EPUB** for prose, or a small-format
+**LaTeX PDF** for mathematics.
 
-The scan is a 1.2 MB, 88-page bilevel JBIG2 image PDF. Every page is a picture.
-On a 6" e-reader that means pan-and-zoom on a 5.6"×8.75" page, no text reflow,
-no selection, no search. This repository contains the pipeline that turns it
-into real text, and the result.
+The method is OCR for a cheap first reading, a vision model that reads the
+page images to produce the text, two independent model reviewers that proof
+it against the same images, and a mechanical cross-check between the model
+and the OCR that no model can talk its way past. What a reviewer flags is
+adjudicated against the scan before anything ships.
 
-**Everything here is reproducible.** The scripts, the prompt, and the LaTeX
-preamble are the whole method — there is no hand-editing step hidden between
-them, and the one place where human judgement is required is explicit and
-counted (see *The `\UNSURE` contract* below).
+**Everything here is reproducible.** The scripts, the prompts and a per-book
+config file are the whole method. Human (or adjudicating-agent) judgement is
+needed at exactly two points, both explicit and counted: the page-map
+anomalies of stage 2b, and the review findings of stage 4.
 
----
+Two books have been through it, and they are worked examples below:
 
-## Provenance and rights
-
-Read this before reusing the built book.
-
-- The underlying work is Kolmogorov's 1933 *Grundbegriffe*.
-- **This is the 1950 Chelsea English translation by Nathan Morrison**, whose
-  copyright page reads `COPYRIGHT 1950 BY CHELSEA PUBLISHING COMPANY`. A
-  separate 1956 copyright exists for the second edition.
-- Under US law a 1950 work published with notice entered a 28-year term,
-  renewable in 1977–78 for a total of 95 years. **We did not verify whether
-  that renewal was filed.** If it was, the translation is protected until 2045
-  and the rightsholder lineage runs Chelsea → American Mathematical Society. If
-  it was not, the translation is in the US public domain.
-- We make **no public-domain claim**. Settling it requires a Class A renewal
-  search in the *Catalog of Copyright Entries*, Part 1A, for 1977 and 1978 —
-  or a query against Stanford's
-  [Copyright Renewal Database](https://exhibits.stanford.edu/copyrightrenewals).
-
-**This repository contains the pipeline only. The built book is not
-published here, and neither is the reconstructed text.** The pipeline
-(scripts, prompt, preamble, this README) is our own work and is offered under
-the MIT licence. The book text carries whatever status the 1950 Morrison
-translation carries — and since we could not establish that status,
-redistributing a full book-length reconstruction of it is not something this
-repository does. Point the scripts at your own copy of the scan.
-
----
-
-## Result
-
-| | source scan | rebuilt |
+| | Kolmogorov, *Foundations of the Theory of Probability* (1950) | Polanyi, *The Tacit Dimension* (1966) |
 |---|---|---|
-| type | bilevel page images (JBIG2) | real text |
-| page size | 401×630 pt (5.6"×8.75") | 90×120 mm |
-| selectable / searchable | no | yes |
-| font scales with reader setting | no | yes (rebuild at another size) |
-| size | 1.2 MB | 0.7 MB, 190 pages |
+| kind | measure-theoretic monograph | philosophical prose |
+| profile | `latex-math` → PDF | `xhtml-prose` → EPUB |
+| scan | 88 pages, bilevel JBIG2, 1.2 MB | 102 pages, bilevel CCITT at ~480 dpi, 10.8 MB |
+| repair model | Codex, from OCR text only | Claude Opus, from page images + OCR |
+| review | Codex (one reviewer) | Grok 4.7 and Claude Sonnet, both from page images |
+
+---
+
+## Rights
+
+**This repository contains the pipeline only — never a built book or a
+reconstructed text.** The pipeline (scripts, prompts, this README) is offered
+under the MIT licence. A book you run through it keeps whatever copyright
+status it has. Point the scripts at your own copy of a scan, and treat the
+output as a private reading copy unless you have established that the work
+is free to redistribute.
 
 ---
 
 ## The pipeline
 
-Five stages. Stages 1, 2 and 5 are deterministic; stage 3 is the model; stage 4
-is the human gate.
-
 ```
 scan.pdf
-   │  1. pdftoppm -r 400 -gray -png
+   │ 1   render.sh       one PNG per page, extracted losslessly when possible
    ▼
-pages/p-NN.png            88 page images
-   │  2. tesseract -l eng --psm 6
+pages/p-NNN.png
+   │ 2   ocr.sh          tesseract --psm 6, parallel
+   │ 2b  pagemap.py      printed page numbers → GAPs, INK and SPARSE pages
+   │ 2c  views.py        each page as two half-page images a model can read
    ▼
-ocr/p-NN.txt              raw OCR, prose clean / math destroyed
-   │  3. codex exec  (6 parallel chunks, 13 pages each)
+ocr/p-NNN.txt  views/p-NNN-{1,2}.png  pagemap.tsv     + book.json (you write it)
+   │ 3a  chunk.py repair     5 pages per prompt
+   │ 3b  run-model.sh <claude|grok|codex> repair
    ▼
-out/cNN.raw               per-page LaTeX blocks
-   │  4. assemble.py  → verify coverage, count \UNSURE
+out/repair-<provider>/c-*.raw         one delimited block per page
+   │ 3c  diffcheck.py        model output vs OCR, word level, model-free
+   │ 3d  chunk.py review + run-model.sh <provider> review   (one or more reviewers)
    ▼
-tex/body.tex
-   │  5. pdflatex ×2
+out/review-<provider>/c-*.raw         one AUDIT block per page
+   │ 4a  findings.py         all reviewers' findings per page, agreement marked
+   │ 4b  adjudicate against the images → fixes/p-NNN.xhtml
+   │     assemble.py         coverage check, joins, notes, gaps, markers
    ▼
-book/kolmogorov.pdf
+build/sections/*.xhtml     (or tex/body.tex)
+   │ 5   build-epub.py       (or build.sh: pdflatex ×2)
+   ▼
+book/<slug>.epub           (or book/<slug>-<N>pt.pdf)
 ```
 
-### 1. Rasterise — `scripts/render.sh`
+Every script runs **from the book's working directory**, not from this
+repository: `/path/to/repo/scripts/ocr.sh`. Each stage reads the previous
+stage's files from the current directory, so a book is a directory and can be
+rerun from any stage.
+
+### `book.json`
+
+The only place that knows anything about a particular book.
+[`examples/`](examples/) has the configs for both worked books.
+
+```json
+{
+  "title": "...", "author": "...", "publisher": "...", "date": "1966",
+  "language": "en", "slug": "short-name",
+  "profile": "xhtml-prose",
+  "chunk_size": 5,
+  "context": "A paragraph the prompts quote: what the book is, its typography
+              (running heads, footnote marks, drop caps), and what in this
+              copy is not the book (library stamps, marginalia).",
+  "sections": [
+    {"id": "introduction", "title": "Introduction", "pages": "5-7"},
+    {"id": "ch1", "label": "1", "title": "Tacit Knowing", "pages": "9-31"}
+  ],
+  "skipped": {"p-008": "chapter 1 title page"},
+  "gaps": [{"after": "p-097", "note": "Printed pages 96–97 are missing from the scan."}]
+}
+```
+
+`pages` are **scan** pages (1-based position in the PDF), never printed page
+numbers. Pages in no section are not transcribed; `skipped` documents why.
+`gaps` become visible notices in the book, so a reader can tell what the scan
+lacked.
+
+### 1. Pages — `scripts/render.sh scan.pdf [dpi]`
+
+If the PDF holds exactly one image per page, the images are **extracted
+losslessly with `pdfimages`**. Otherwise pages are rasterised with
+`pdftoppm -r 400`. This matters more than it looks: scans commonly declare a
+nominal 72 ppi page size, so the Polanyi scan's 2066×3522 px page images
+claim to be 29"×49" pages, and `pdftoppm -r 400` would have rendered each at
+roughly 11500×19500 px. Every PNG is decode-checked afterwards (see
+*Failures worth recording*).
+
+### 2. OCR — `scripts/ocr.sh [dpi] [jobs]`
+
+`tesseract --psm 6` ("a single uniform block of text"): on single-column
+books the default mode looks for columns that are not there. One tesseract
+thread per process, `nproc/2` processes: 102 pages in 17 s.
+
+### 2b. Page map — `scripts/pagemap.py`
+
+Reads the printed folio off each page, then reports:
+
+- **GAP** — the printed numbers jump. Either an unnumbered chapter opening
+  and blank pages, or pages missing from the scan. On Polanyi it found that
+  printed pp. 96–97 and 101–102 were never scanned, which no later stage can
+  see: every page that *is* there transcribes perfectly.
+- **INK** — ink but almost no OCR text: a photograph, a plate, a truncated
+  image, a display title.
+- **SPARSE** — little of either: a blank or a title page.
+
+Read the images around each anomaly and record the outcome in `book.json`.
+
+### 2c. Model views — `scripts/views.py`
+
+Vision models downscale their inputs to roughly 1500 px on the long edge. A
+full scan page then comes out about 840 px wide, at which body text is
+readable but italics, small capitals and footnotes are not reliably so. Each
+page is therefore trimmed to its ink and split into a top and a bottom half,
+with a few lines of overlap so no line is only ever seen cut in two. The
+prompts tell the model about the overlap.
+
+### 3. Repair — `chunk.py repair` + `run-model.sh <provider> repair`
+
+> **Prose survives OCR. Mathematics does not. And OCR loses everything
+> typographic.**
+
+Tesseract on the Polanyi scan produces nearly clean words — and no italics,
+no small capitals, no superscript note references, footnotes merged into the
+text, pencil marginalia turned into garbage, and occasionally a whole line
+dropped (on p. 48 it lost a footnote line naming three chemists). So the
+model's job is repair, and **for prose the model reads the page images**: the
+OCR is supplied as a helper, the image is the ground truth.
+
+Each provider runs headless, with **file reading as its only tool** and no
+writing, shell, web or MCP access. The model emits delimited blocks on
+stdout; the scripts do the writing, so every byte passes through the parser.
 
 ```sh
-pdftoppm -r 400 -gray -png source.pdf pages/p
+MODEL=opus EFFORT=medium scripts/run-model.sh claude repair 6
+MODEL=grok-4.7          scripts/run-model.sh grok   repair 4
+EFFORT=high             scripts/run-model.sh codex  repair 6
 ```
 
-400 dpi from a 300 dpi source is deliberate oversampling: tesseract's line
-segmentation behaves better with the extra pixels, and the source is bilevel so
-there is no interpolation blur to worry about.
+Prompts: [`prompts/xhtml-prose-repair.txt`](prompts/xhtml-prose-repair.txt)
+and [`prompts/latex-math-repair.txt`](prompts/latex-math-repair.txt). The
+prose output is a small XHTML vocabulary: `<p>`, `<p class="cont">` for a
+paragraph continued from the previous page (decided by the first line's
+*indentation*, not by grammar), `<em>`, small caps, block quotations,
+footnote marks and texts, note references, numbered notes, and an *unsure*
+marker.
 
-### 2. OCR — `scripts/ocr.sh`
+`run-model.sh` is resumable and does not trust exit codes. A chunk counts as
+done only when its output holds a block for every page the chunk was given;
+an incomplete chunk is retried once, and a rerun redoes only what is still
+incomplete. `PAGES=p-049,p-050 CHUNK_SIZE=1 chunk.py repair` rebuilds just
+those pages, one per prompt; chunks are named by page range so a retry lands
+beside earlier output, and the newest block for a page wins.
+
+#### The unsure contract
+
+A model that cannot read something produces a *plausible* something. In a
+probability monograph a plausible-but-wrong formula typesets beautifully and
+is silently false; in prose, a plausible word is never found again. So both
+repair prompts make admitting blindness the success case: `\UNSURE{...}` in
+LaTeX, `<span class="unsure">[? ...]</span>` in XHTML. Markers render
+**visibly** in the output, and `assemble.py` counts and lists every one.
+
+And it only covers half the risk. On Kolmogorov, spot checks found
+mathematics transcribed *confidently and wrongly* with no marker: a finite
+sum bounding a probability came back as a limit with the inequality
+flattened to an equality, and an OCR error in a section cross-reference was
+carried straight through. A marker means the model knew it was blind.
+**Nothing in a single pass catches the cases where it was blind and did not
+know.** That is what stages 3c and 3d are for.
+
+### 3c. Mechanical cross-check — `scripts/diffcheck.py`
+
+The OCR is noisy but it is *independent of the model*: it cannot drop a
+sentence because it decided to, and it cannot invent one. A word-level diff
+between OCR and output flags any run of six or more words present in only one
+of them, plus any page whose overall similarity is low. On Polanyi it flagged
+4 of 95 pages: one real omission (an *Erratum* notice the model had treated as
+not part of the book), and three places where the model was right and
+tesseract had dropped or garbled a line.
+
+### 3d. Review — `chunk.py review` + `run-model.sh <provider> review`
+
+A reviewer gets, per page, the two image halves, the OCR and the repaired
+fragment, and is told to hunt, in order: omissions, inventions, wrong
+words, italics, structure, meaning-changing punctuation — and that CLEAN is
+the normal outcome and a false finding costs a human a lookup. It may not
+write corrected text; it quotes both sides. Prompts:
+[`prompts/xhtml-prose-review.txt`](prompts/xhtml-prose-review.txt),
+[`prompts/latex-math-review.txt`](prompts/latex-math-review.txt).
+
+Use **a different model from the repair pass**, and ideally two from
+different vendors: their blind spots differ, and agreement between them is
+the strongest signal you get without a human proofreader.
+
+### 4a. Collect findings — `scripts/findings.py [--md findings.md]`
+
+Merges every `out/review-*` directory page by page, most severe first, marks
+a finding `[also: <reviewer>]` when another reviewer quoted the same words,
+and lists pages a reviewer returned no audit for (a missing audit is not a
+clean page). Ends with each reviewer's CLEAN count.
+
+On Polanyi, Claude Sonnet passed 93 of 95 pages and Grok 4.7 passed 91. They
+agreed on the two real defects in the text: the *Erratum* on p. 99 and the
+section-break ornament on p. 83. Neither noticed that four other
+ornament pages had lost theirs too; that turned up when the p. 83 fix was
+checked against the book's other section breaks, so search for the same
+defect elsewhere whenever you confirm one. Of Grok's four solo findings, one
+was real (book entries in the bibliography split into title and imprint
+paragraphs). Three were wrong: it called two italic *See*s roman, and read
+a tightly kerned "Modern" as "Modem", copying tesseract's misreading. A
+single reviewer's finding is a lead to check, not a verdict.
+
+### 4b. Adjudicate, then assemble — `scripts/assemble.py`
+
+Every review finding is checked against the page image. A confirmed one is
+fixed by writing the corrected page to `fixes/p-NNN.xhtml`, which replaces
+that page's model block wholesale. Corrections live apart from model output
+so that rerunning a model pass can never silently undo them.
+
+`assemble.py` then:
+
+- verifies every page in `book.json` produced a block — against the config,
+  never against a model's own completion marker — and exits non-zero if not;
+- checks each page fragment is well-formed XHTML;
+- joins continued paragraphs across page breaks, resolving a word hyphenated
+  across the break against the system word list, and prints every join;
+- pairs footnote marks with footnotes per page, links superscript note
+  references to the Notes, and lists references whose note is not there;
+- inserts the `gaps` notices, and counts the unsure markers.
+
+### 5. Build
+
+- **EPUB** — `scripts/build-epub.py`: EPUB 3 with an EPUB 2 `toc.ncx` for
+  older readers; footnotes as `epub:type="noteref"`/`"footnote"`, which
+  Kindle and Apple Books show as pop-ups. It adds a generated title page and
+  an *About this edition* page that says the text is a machine transcription
+  and lists everything the scan was missing. Every document is checked for
+  well-formedness before zipping. Smoke test:
+  `ebook-convert book/<slug>.epub /tmp/x.azw3`.
+- **PDF** — `scripts/build.sh [pt]` (default 8): `tex/preamble.tex` targets a
+  90×120 mm e-reader page. The `fontsize` package sets the base size so that
+  `\small`, headings and math script sizes all follow; what the eye judges on
+  an e-reader is characters per line, which the build reports. LaTeX errors
+  are reported and fail the build, rather than being recovered from silently.
+  The book directory supplies `tex/frontmatter.tex` and `tex/closing.tex`.
+
+---
+
+## Running a book
+
+Requires `poppler-utils`, `tesseract-ocr`, Python 3 with Pillow and NumPy,
+`jq`, a word list in `/usr/share/dict`, and at least one of the `claude`,
+`grok` or `codex` CLIs. LaTeX output also needs `texlive-latex-recommended`
+and `texlive-science`; Calibre's `ebook-convert` is optional.
 
 ```sh
-tesseract pages/p-NN.png ocr/p-NN -l eng --psm 6 --dpi 400
+mkdir mybook && cd mybook
+R=/path/to/scan-to-epub-ocr-pipeline/scripts
+$R/render.sh ~/scans/mybook.pdf
+$R/ocr.sh 450 10
+$R/pagemap.py                  # then write book.json
+$R/views.py
+$R/chunk.py repair
+MODEL=opus $R/run-model.sh claude repair 6
+$R/diffcheck.py
+$R/chunk.py review
+MODEL=grok-4.7 $R/run-model.sh grok review 4
+MODEL=sonnet EFFORT=high $R/run-model.sh claude review 4
+$R/findings.py --md findings.md
+# adjudicate findings -> fixes/p-NNN.xhtml
+$R/assemble.py
+$R/build-epub.py
 ```
-
-`--psm 6` ("a single uniform block of text") beats the default on this book —
-the default page-segmentation mode tries to find columns that are not there and
-fragments the running text.
-
-The script is idempotent: it skips any page that already has a non-empty
-`.txt`. That matters more than it sounds — see *Failures worth recording*.
-
-### 3. The Codex pass — `prompts/codex-latex-repair.txt`
-
-This is the stage that does the real work, and it exists because of one fact:
-
-> **Prose survives OCR. Mathematics does not.**
-
-Tesseract on this scan produces near-perfect English and near-useless
-mathematics. A representative failure, from page 30 of the scan:
-
-```
-Let now E = {&,, &,..., én, ...} be a countable set, and let $
-coincide with the aggregate of the subsets of E.
-...
-and for each set A put
-where the summation >’ extends to all the indices n for which
-```
-
-Three separate failures in six lines: the indexed family `ξ₁, ξ₂, …, ξₙ` is
-mangled to `&,, &,..., én`; the fraktur field symbol became `$`; and the
-display equation between "put" and "where" was **dropped entirely** — the OCR
-leaves no trace that anything was there.
-
-So the model's job is not transcription, it is *repair*. It is invoked as:
-
-```sh
-env -u SSLKEYLOGFILE codex exec --sandbox read-only --skip-git-repo-check \
-  -c model_reasoning_effort="high" - < chunks/cNN.txt
-```
-
-Three details that are easy to get wrong:
-
-- **`model_reasoning_effort` defaults to `none`.** Left unset, Codex answers at
-  roughly search-and-summarise depth, which is nowhere near enough to
-  reconstruct measure-theoretic notation from corrupted text.
-- **`--sandbox read-only`** means Codex cannot write files. It emits LaTeX on
-  stdout and the surrounding scripts do the writing. This is a feature: every
-  byte it produces passes through `assemble.py` and gets counted.
-- **Chunk the input and force incremental emission.** A long run can have its
-  context compacted mid-flight, and anything the model planned to emit "at the
-  end" is silently lost — the run still exits 0. So: 13 pages per process, six
-  processes in parallel, and rule 1 of the prompt forbids reading the corpus
-  before emitting. `assemble.py` then verifies the emitted blocks against the
-  input list mechanically rather than trusting any completion marker.
-
-### 4. The `\UNSURE` contract — the part that matters
-
-A model asked to reconstruct a dropped equation will produce a *plausible* one.
-In a probability monograph a plausible-but-wrong formula is undetectable
-downstream: it typesets beautifully and it is silently false. This is the
-single largest risk in the whole project and it is why rule 4 of the prompt
-reads:
-
-> A `\UNSURE` marker is a success: a human will read the page image and fill it
-> in. An invented formula that looks plausible is the single worst outcome of
-> this job, because it is undetectable downstream. When torn between
-> reconstructing and marking, MARK.
-
-`\UNSURE{...}` renders **visibly** in the PDF as `[? description]`. It is not a
-silent comment. `assemble.py` counts every occurrence and prints it, and each
-one is then resolved by reading the actual page image and supplying the
-formula by hand.
-
-The honest summary of this pipeline is therefore: *the model does 100% of the
-transcription and the human does 100% of the adjudication of what the model
-admitted it could not read.* That division only works because the model was
-instructed to admit it.
-
-**And it only covers half the risk.** Spot-checking the output against the page
-images turned up a second, worse failure class: mathematics the model
-transcribed *confidently and wrongly*, with no marker. On one page a finite sum
-bounding a probability came back as a limit, with the inequality flattened to an
-equality and the summation index silently renamed. On another, an OCR error in a
-cross-reference (a section number) was carried straight through into clean
-LaTeX. Both typeset perfectly.
-
-So the contract's real scope is narrower than it first appears:
-
-> `\UNSURE` catches **dropped** content. It does not catch **misread** content.
-
-A marker means the model knew it was blind. Nothing in the pipeline detects the
-cases where it was blind and didn't know. The only remedy is page-by-page
-comparison against the images by someone who can read the mathematics, and this
-pipeline does not do that for you. Treat any output of it as a draft to be
-proofread, not as a faithful edition.
-
-### 5. Typeset — `scripts/build.sh`
-
-`tex/preamble.tex` targets a 90×120 mm page with 5 mm margins — an e-reader
-trim size, not a paper one. The non-obvious settings:
-
-- `\abovedisplayskip` etc. cut to 4 pt. At this page size default display
-  skips push almost every equation onto its own page.
-- `\raggedbottom` and `\sloppy`. On a 90 mm measure, justified text with
-  default tolerances produces constant overfull boxes; loose lines are the
-  better trade.
-- `\UNSURE` is defined in the preamble, so an unresolved marker cannot be
-  compiled away by accident.
 
 ---
 
@@ -208,41 +304,42 @@ trim size, not a paper one. The non-obvious settings:
 
 Kept because they cost real time and are not obvious in advance.
 
-**A killed `pdftoppm` leaves a truncated PNG that OCRs to zero bytes.** The
-first render was interrupted by a timeout; page 46 was in flight and was left
-as a valid-looking but truncated file. Tesseract produced an empty `.txt` for
-it without erroring, and the empty file looked exactly like the genuinely blank
-pages 84–88. It was caught by measuring ink coverage per page rather than
-trusting file sizes:
+**`claude --print --output-format json` keeps only the last text block.**
+The repair prompt asks the model to write each page as soon as it is done,
+which it does — one text block per page, between its image reads. JSON mode
+returns only the final block, so a five-page chunk came back as one page
+with exit status 0. `run-model.sh` uses `stream-json` and concatenates every
+assistant text block.
 
-```python
-a = np.array(Image.open(png).convert('L'))
-ink = (a < 128).mean()      # 0.0 = blank page; >0.04 = has content
-```
+**A model can write a page in its reasoning and not in its reply.** One
+Polanyi chunk came back with one page out of five on four attempts, two of
+them after the prompt was changed to say in so many words that reasoning is
+not output: the model read all ten images, wrote four pages where only it
+could see them, and replied with the fifth. The completeness check caught it
+every time, and rerunning those four pages one per prompt fixed it. The
+lesson is the check, not the prompt wording.
 
-A page with ink and no OCR text is a bug. A page with no ink and no OCR text is
-a blank page. Without that distinction the corrupt page would have shipped as a
-silently missing page of the book.
+**Nominal page sizes.** See stage 1: rasterising a 72 ppi-declared scan at
+400 dpi would have produced images roughly 30 times larger than the actual
+scan, for no gain.
 
-**Codex buffers stdout to the end of the run.** Watching the output file for
-partial results shows nothing until the process exits; the visible stream on
-stderr is just the echoed prompt. Progress has to be judged another way.
+**A killed renderer leaves a truncated PNG that OCRs to zero bytes.** On
+Kolmogorov, page 46 was in flight when `pdftoppm` was killed by a timeout;
+tesseract produced an empty `.txt` without erroring, indistinguishable from
+the genuinely blank pages 84–88. Caught by measuring ink per page rather
+than trusting file sizes, which is now what `pagemap.py` reports as INK.
 
----
+**Codex buffers stdout until it exits**, so watching its output file shows
+nothing until the end; and its `model_reasoning_effort` defaults to `none`,
+far too shallow for reconstructing notation. `run-model.sh` passes `high`.
 
-## Reproducing
+**`pgrep --full` matches the process that runs it.** A background waiter
+built as `while pgrep --full 'run-model.sh grok review'; do sleep 15; done`
+never exits, because that pattern is in the waiter's own command line. Grok
+finished all 95 audits at 13:23; the waiter was still polling an hour later.
+Wait on the PID (`wait`, or `tail --pid=N --follow /dev/null`), or a
+pattern the waiter itself does not contain, such as `pgrep --full '[r]un-model.sh'`.
 
-Requires `poppler-utils`, `tesseract-ocr`, `texlive-latex-recommended`,
-`texlive-science`, and the `codex` CLI.
-
-```sh
-./scripts/render.sh path/to/scan.pdf
-./scripts/ocr.sh
-./scripts/chunk.py                  # build the per-chunk prompts
-./scripts/run-codex.sh              # six parallel processes
-./scripts/assemble.py               # verify coverage, count \UNSURE
-./scripts/build.sh                  # pdflatex ×2
-```
-
-`assemble.py` exits non-zero if any expected page failed to produce a block, so
-the build stops rather than silently shipping a short book.
+**Swallowed LaTeX errors.** The Kolmogorov build ran `pdflatex … || true`,
+and its body has an unbalanced `\begin{proof}` that LaTeX silently closed at
+`\end{document}`. `build.sh` now reports recovered errors and exits non-zero.

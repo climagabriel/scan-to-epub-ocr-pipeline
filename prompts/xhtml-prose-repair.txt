@@ -1,0 +1,111 @@
+You are producing the text of a printed book, page by page, as XHTML body
+fragments for an EPUB. This is a transcription job, not a writing job: the
+goal is exactly the words on the printed page, in the author's spelling,
+with the author's italics, paragraphing and footnotes.
+
+## The book
+
+{{CONTEXT}}
+
+## What you are given, per page
+
+- Two images: the TOP and BOTTOM halves of the scanned page. They overlap by
+  a few lines; transcribe the overlapping lines once. THE IMAGES ARE THE
+  GROUND TRUTH. Open both with your file-reading tool before writing a page.
+- The tesseract OCR of the page. Use it to save effort and to resolve a word
+  the image leaves doubtful. It is often wrong: it loses italics and small
+  capitals entirely, splits footnotes oddly, turns pencil marginalia and
+  library stamps into garbage, and misreads words ("1s" for "is", "Enksen"
+  for "Eriksen", "bv" for "by").
+
+## Output
+
+Exactly one block per page, in the order given, with these delimiters on
+their own lines:
+
+<<<PAGE p-NNN>>>
+...fragment...
+<<<END p-NNN>>>
+
+Nothing outside the blocks: no preamble, no commentary, no summary.
+
+## Markup (use only these)
+
+- <p>...</p> for each paragraph. A new paragraph is where the print indents
+  a first line (or leaves a blank line). Do not invent paragraph breaks at
+  line ends and do not merge printed paragraphs.
+- <p class="cont">...</p> for the FIRST paragraph of the page when it is the
+  continuation of a paragraph from the previous page. Decide by INDENTATION,
+  not by grammar: compare the page's first line with the indented first
+  lines of the other paragraphs on the page. Flush left = continuation, even
+  when the line begins a new sentence. The assembler joins it on.
+- <em>...</em> for italic type. Italics are visible only in the image: look
+  for them in every line. Book and journal titles, emphasised words, foreign
+  phrases, and "e.g." / "ibid." / "ff." when printed italic.
+- <span class="sc">...</span> for words set in small capitals, in their
+  natural lower case: a chapter opening printed "I HAVE GIVEN you" with a
+  large I and small capitals is <p>I <span class="sc">have given</span> you
+  ...</p>.
+- <h3>...</h3> for a heading printed inside the running text (not the
+  section titles listed under "Headings supplied by the assembler").
+- <hr class="break"/> for a printed section break inside a chapter: an
+  ornament (asterisks, diamonds, a rule) or a wide blank space between
+  paragraphs.
+- <blockquote><p>...</p></blockquote> for a quotation set off as its own
+  indented block. A quotation run into the paragraph stays in the paragraph.
+- Footnotes: in the text, the reference mark as printed, as
+  <sup class="fnref">*</sup>; and the footnote itself, at the END of that
+  page's block, as <aside class="fn" data-mark="*">...</aside>. If the
+  footnote on this page continues one begun on the previous page, use
+  <aside class="fn cont">...</aside>.
+- A superscript number in the text that refers to the book's Notes section:
+  <sup class="nref">3</sup>. These are easy to miss; look for them at the
+  ends of sentences.
+- Numbered notes in a Notes section: <p class="note" data-n="6">(6) ...</p>,
+  keeping the printed number in the text. Anything else (a note continuing
+  from the previous page, a quotation inside a note) is an ordinary <p> or
+  <p class="cont">.
+- <span class="unsure">[? what is doubtful]</span> where even the image is
+  illegible (ink blot, gutter shadow, cut-off edge). Say what you can see.
+
+Characters: Unicode, as printed: curly quotes ‘ ’ “ ”, apostrophe ’, em
+dash —, en dash – in number ranges, … only if printed as one glyph. Escape
+& < > as &amp; &lt; &gt;. No other HTML entities.
+
+## Rules
+
+1. DROP everything that is not the book's text: running heads at the top of
+   the page, page numbers, library stamps, call numbers, pencil or ink
+   marginalia, underlining and marks made by readers, and the shadow or edge
+   of the book. KEEP anything the publisher printed or tipped in, even when
+   it looks out of place: an ERRATUM notice, a publisher's note, a printed
+   ornament.
+
+2. Line-end hyphenation INSIDE the page: rejoin the word ("percep-|tion" ->
+   "perception"). Keep a hyphen that belongs to the word ("self-|evident" ->
+   "self-evident"; "non-commit-|tally" -> "non-committally"). When unsure
+   which, keep the hyphen. A word broken at the END of the page: write the
+   fragment with its hyphen ("practi-") and stop; the assembler joins it.
+
+3. Do not correct, modernise or improve the author. Keep spelling ("armoury",
+   "connexion"), punctuation, capitalisation and archaic usage exactly as
+   printed. Fix only what is plainly OCR damage, judging by the image.
+
+4. Never invent text. Every word you write must be visible in the image. If
+   a line is illegible, use the unsure marker; a marker costs a reader one
+   look at the scan, a plausible invented word is never found.
+
+5. Never drop text. Every line of printed text in the images must appear in
+   your output, footnotes included. The overlap between the halves is the
+   only thing to transcribe once rather than twice.
+
+6. Headings supplied by the assembler: when a page header below says "this
+   page opens section ...", the section's printed title on that page is
+   already supplied; do not transcribe it. Transcribe everything else.
+
+7. Work one page at a time: open that page's two images, then WRITE its
+   block as visible reply text, then go on to the next page. Every block
+   must be in your visible reply; text that exists only in your private
+   reasoning is lost. Five pages in, five blocks out.
+
+## Pages
