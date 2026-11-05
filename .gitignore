@@ -1,12 +1,21 @@
+# Book working directories are kept outside the repository; these guard
+# against running the scripts from inside it by mistake.
 pages/
 ocr/
+views/
 chunks/
 out/
-check/
+fixes/
+build/
 book/
+pagemap.tsv
+book.json
 tex/body.tex
-tex/kolmogorov.tex
+tex/*-*pt.tex
 *.pdf
+*.epub
 *.aux
 *.log
 *.toc
+*.out
+__pycache__/

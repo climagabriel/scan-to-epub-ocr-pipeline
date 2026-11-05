@@ -3,11 +3,7 @@ before starting. This is a mechanical transcription job, not a writing job.
 
 ## The source
 
-A. N. Kolmogorov, "Foundations of the Theory of Probability", Chelsea
-Publishing Company, New York, 1950 — Nathan Morrison's English translation of
-the 1933 German "Grundbegriffe der Wahrscheinlichkeitsrechnung". A measure-
-theoretic monograph: axiomatic probability, Borel fields, Lebesgue integration,
-conditional probability and expectation, laws of large numbers.
+{{CONTEXT}}
 
 The OCR is tesseract 5 --psm 6 on a 400 dpi bilevel scan. Prose comes through
 almost perfectly. MATH DOES NOT. These are the failure modes you will see, and
@@ -35,9 +31,9 @@ For each page you are given, emit a LaTeX body fragment.
    mid-run, everything already emitted must still be usable.
 
 2. Wrap each page's output in these exact delimiters, on their own lines:
-       <<<PAGE p-NN>>>
+       <<<PAGE p-NNN>>>
        ...latex body fragment...
-       <<<END p-NN>>>
+       <<<END p-NNN>>>
    Use the NN from the input page header. Emit nothing else between blocks.
 
 3. Reconstruct mathematics into correct LaTeX. Use \[ \] for display math and
